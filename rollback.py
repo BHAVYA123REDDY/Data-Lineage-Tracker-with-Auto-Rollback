@@ -11,10 +11,25 @@ This keeps a full history: nothing is deleted, the bad version simply becomes
 inactive and the good version continues to be used.
 """
 
+import os
+
 import database
 
-# Configuration switch: set to False if you want failures WITHOUT rollback.
-AUTO_ROLLBACK_ENABLED = True
+
+def _env_flag(name, default):
+    """Read a true/false switch from an environment variable.
+
+    Accepts 1/true/yes/on (any case) as True. Anything else is False.
+    If the variable is not set at all, `default` is returned.
+    """
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+# Configuration switch: disable by setting AUTO_ROLLBACK_ENABLED=false.
+AUTO_ROLLBACK_ENABLED = _env_flag("AUTO_ROLLBACK_ENABLED", True)
 
 
 def find_last_successful_version(source_name, before_version_id=None, db_path=None):

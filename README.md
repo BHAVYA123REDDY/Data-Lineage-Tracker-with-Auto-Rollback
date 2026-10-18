@@ -14,6 +14,7 @@ Built to run comfortably on a modest laptop (Intel i5, 8 GB RAM) — no heavy AI
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Running with Docker](#running-with-docker)
 - [Using the Dashboard](#using-the-dashboard)
 - [Demo Walkthrough](#demo-walkthrough)
 - [API Reference](#api-reference)
@@ -61,7 +62,7 @@ This project answers both with a small Flask + SQLite web app. A dashboard shows
 | Backend | Python 3 + Flask |
 | Database | SQLite (standard library `sqlite3`, no ORM) |
 | Version control | Git + GitHub |
-| Containerisation | Docker *(Phase 7)* |
+| Containerisation | Docker + Docker Compose |
 | CI/CD | Jenkins *(Phase 8)* |
 | Orchestration | Kubernetes, optional *(Phase 9)* |
 
@@ -106,6 +107,9 @@ This project answers both with a small Flask + SQLite web app. A dashboard shows
               +--------------------+
 ```
 
+The whole application is packaged as a Docker image — see
+[Running with Docker](#running-with-docker).
+
 ---
 
 ## Project Structure
@@ -121,7 +125,13 @@ Data-Lineage-Tracker-with-Auto-Rollback/
 ├── test_pipeline.py        # Tests for lineage + pipeline simulation
 ├── test_rollback.py        # Tests for automatic rollback
 ├── test_app.py             # Tests for pages, API and error handling
+├── test_config.py          # Tests for environment-based configuration
 ├── requirements.txt        # Only: flask
+├── Dockerfile              # Container image definition
+├── docker-compose.yml      # One-command container setup with a data volume
+├── docker-entrypoint.sh    # Seeds demo data (if empty) then starts the app
+├── .dockerignore           # Keeps the image and build context small
+├── .gitattributes          # Forces LF line endings for shell scripts
 ├── .gitignore              # Excludes venv, *.db and *.log
 ├── docs/
 │   └── screenshots/        # Dashboard and logs screenshots
@@ -195,6 +205,83 @@ Then open **http://127.0.0.1:5000** in your browser.
 
 > The server must be running for the site to load. Press `Ctrl + C` in the terminal to stop it.
 > Set the environment variable `FLASK_DEBUG=1` before starting to enable auto-reload while editing code.
+
+---
+
+## Running with Docker
+
+The whole application is packaged as a small image based on **`python:3.12-slim`**
+and runs as a **non-root user**. Nothing else needs to be installed on the machine.
+
+### Option A — Docker Compose (recommended, one command)
+
+```bash
+docker compose up -d --build
+```
+
+Then open **http://127.0.0.1:5000**.
+
+Useful commands:
+
+```bash
+docker compose ps            # check status (should say "healthy")
+docker compose logs -f       # follow the application logs
+docker compose down          # stop the container (data is kept)
+docker compose down -v       # stop and delete the database volume
+```
+
+### Option B — plain Docker
+
+```bash
+docker build -t data-lineage-tracker:1.0 .
+docker run -d --name lineage-tracker -p 5000:5000 -v lineage-data:/app/data data-lineage-tracker:1.0
+```
+
+```bash
+docker ps                                  # status + health
+docker logs lineage-tracker                # startup output
+docker exec lineage-tracker python -c "print('inside the container')"
+docker stop lineage-tracker && docker rm lineage-tracker
+```
+
+### What happens on start-up
+
+`docker-entrypoint.sh` runs `seed.py` first. Seeding is **safe to repeat**: the
+sample versions are only inserted when the database is empty, so restarting the
+container never duplicates or loses data. Then the Flask app starts and listens
+on `0.0.0.0:5000`.
+
+### Configuration with environment variables
+
+| Variable | Default (in the image) | Purpose |
+|---|---|---|
+| `HOST` | `0.0.0.0` | Interface the web server binds to |
+| `PORT` | `5000` | Port the web server listens on |
+| `LINEAGE_DB_PATH` | `/app/data/lineage.db` | SQLite file location (put it on a volume) |
+| `AUTO_ROLLBACK_ENABLED` | `true` | Set to `false` to see failures **without** rollback |
+| `FLASK_DEBUG` | `0` | `1` enables auto-reload (development only) |
+
+Example — run with automatic rollback turned off:
+
+```bash
+docker run -d --name lineage-demo -p 5000:5000 -e AUTO_ROLLBACK_ENABLED=false data-lineage-tracker:1.0
+```
+
+### Health check
+
+The image contains a `HEALTHCHECK` that calls the `/health` endpoint every
+30 seconds, so `docker ps` reports **`(healthy)`** when the app is ready. The same
+endpoint will be reused by Jenkins and Kubernetes in the next phases.
+
+```bash
+docker inspect --format "{{.State.Health.Status}}" lineage-tracker
+```
+
+### Data persistence
+
+The database lives in the named volume **`lineage-data`** mounted at `/app/data`.
+Stop and restart the container as often as you like — your versions, runs and
+rollback history stay exactly where they were.
 
 ---
 
@@ -339,13 +426,20 @@ SQLite file: `lineage.db` (created automatically, excluded from Git).
 
 ## Testing
 
-The project has **99 tests** across four files. Each test uses a temporary database, so your real data is never modified.
+The project has **122 tests** across five files. Each test uses a temporary database, so your real data is never modified.
 
 ```powershell
 .venv\Scripts\python.exe test_database.py    # 10 tests
 .venv\Scripts\python.exe test_pipeline.py    # 23 tests
 .venv\Scripts\python.exe test_rollback.py    # 21 tests
 .venv\Scripts\python.exe test_app.py         # 45 tests
+.venv\Scripts\python.exe test_config.py      # 23 tests
+```
+
+The same tests can run inside the container (this is what the Jenkins pipeline will do in Phase 8):
+
+```bash
+docker run --rm data-lineage-tracker:1.0 python test_pipeline.py
 ```
 
 All tests print `[PASS]`/`[FAIL]` per check and exit with code `0` when everything passes:
@@ -354,7 +448,7 @@ All tests print `[PASS]`/`[FAIL]` per check and exit with code `0` when everythi
 Results: 45 passed, 0 failed
 ```
 
-Covered behaviour includes lineage idempotency, per-source version numbering, automatic rollback on failure, no-target rollback on a first-run failure, rollback history accuracy, API validation errors, and HTML/JSON error handling.
+Covered behaviour includes lineage idempotency, per-source version numbering, automatic rollback on failure, no-target rollback on a first-run failure, rollback history accuracy, API validation errors, HTML/JSON error handling, and environment-variable configuration (`LINEAGE_DB_PATH`, `AUTO_ROLLBACK_ENABLED`).
 
 ---
 
@@ -380,6 +474,9 @@ Covered behaviour includes lineage idempotency, per-source version numbering, au
 | `ModuleNotFoundError: flask` | Flask is not installed in the virtual environment | Run `.venv\Scripts\python.exe -m pip install -r requirements.txt` |
 | Port 5000 already in use | Another process is using the port | Close the other app or change the port in `app.py` |
 | Strange file-lock errors on Windows | Project stored inside a synced folder (OneDrive) | Keep the project in a local folder such as `C:\Users\<you>\Projects\` |
+| `failed to connect to the docker API ... is the daemon running` | Docker Desktop is installed but not started | Launch **Docker Desktop** and wait until the whale icon says *Engine running*, then retry |
+| `port is already allocated` on `docker run` | Something else already uses host port 5000 | Stop the other process, or publish a different port: `-p 8080:5000` |
+| Container starts then stops immediately | Entrypoint error — usually a CRLF line ending in a `.sh` file | `.gitattributes` forces LF; make sure it was not edited on Windows |
 
 ---
 
@@ -393,7 +490,7 @@ Covered behaviour includes lineage idempotency, per-source version numbering, au
 | 4 | ✅ Done | Automatic rollback to the last successful version |
 | 5 | ✅ Done | Dashboard, logs and error handling improvements |
 | 6 | ✅ Done | README and project documentation |
-| 7 | Planned | Docker image and container test |
+| 7 | ✅ Done | Docker image, Compose setup, health check and data volume |
 | 8 | Planned | Jenkins CI/CD pipeline |
 | 9 | Optional | Kubernetes deployment if practical on the laptop |
 

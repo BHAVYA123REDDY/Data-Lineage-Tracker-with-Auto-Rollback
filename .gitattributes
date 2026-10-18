@@ -1,0 +1,4 @@
+# Keep shell scripts in the repository with Unix (LF) line endings so they
+# still work when copied into a Linux container. Windows would otherwise
+# convert them to CRLF and the "#!/bin/sh" line would break.
+*.sh text eol=lf

@@ -12,12 +12,21 @@ import sqlite3
 from datetime import datetime
 
 # Database file lives next to this file, inside the project folder.
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lineage.db")
+# In a container the path is overridden with LINEAGE_DB_PATH (e.g. /app/data/lineage.db)
+# so the database can live on a mounted volume and survive restarts.
+DB_PATH = os.environ.get("LINEAGE_DB_PATH") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "lineage.db"
+)
 
 
 def get_connection(db_path=None):
     """Open a connection to the SQLite database."""
-    conn = sqlite3.connect(db_path or DB_PATH)
+    path = db_path or DB_PATH
+    # Make sure the folder exists (needed when LINEAGE_DB_PATH points to a volume).
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent, exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row  # rows behave like dictionaries
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

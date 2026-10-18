@@ -19,7 +19,9 @@ import rollback
 # ---------------------------------------------------------------------------
 # Logging: everything is written to app.log as well as the console.
 # ---------------------------------------------------------------------------
-LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app.log")
+LOG_PATH = os.environ.get("LINEAGE_LOG_PATH") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "app.log"
+)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -265,6 +267,10 @@ def server_error(error):
 
 if __name__ == "__main__":
     # Lightweight settings, suitable for a college demo on a laptop.
+    # In a container HOST is set to 0.0.0.0 so the port can be published.
     # Set FLASK_DEBUG=1 to enable auto-reload while editing.
     debug_mode = os.environ.get("FLASK_DEBUG", "0") == "1"
-    app.run(debug=debug_mode, host="127.0.0.1", port=5000)
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", "5000"))
+    logger.info("Starting Data Lineage Tracker on http://%s:%s", host, port)
+    app.run(debug=debug_mode, host=host, port=port)
