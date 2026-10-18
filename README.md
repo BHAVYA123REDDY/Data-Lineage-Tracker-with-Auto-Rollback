@@ -133,6 +133,7 @@ Data-Lineage-Tracker-with-Auto-Rollback/
 ├── .dockerignore           # Keeps the image and build context small
 ├── .gitattributes          # Forces LF line endings for shell scripts
 ├── .gitignore              # Excludes venv, *.db and *.log
+├── HANDOFF.md              # Team handoff guide and prompts for the remaining phases
 ├── docs/
 │   └── screenshots/        # Dashboard and logs screenshots
 └── templates/
