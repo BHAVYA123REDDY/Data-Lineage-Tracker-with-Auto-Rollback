@@ -1,0 +1,72 @@
+/* Data Lineage Tracker - basic styles (Phase 1) */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f6f9;
+  color: #2c3e50;
+  line-height: 1.6;
+}
+
+header {
+  background-color: #1f3a5f;
+  color: #ffffff;
+  padding: 24px;
+  text-align: center;
+}
+
+.subtitle {
+  margin-top: 4px;
+  color: #a8c3e0;
+}
+
+main {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  padding: 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  color: #1f3a5f;
+}
+
+.status {
+  font-size: 0.95rem;
+  padding: 6px 12px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.status.ok {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status.pending {
+  background-color: #fff8e1;
+  color: #b26a00;
+}
+
+footer {
+  text-align: center;
+  padding: 24px;
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
