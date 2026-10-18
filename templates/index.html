@@ -48,10 +48,36 @@
       {% endfor %}
     </section>
 
+    <!-- ===== Current (active) version per source ===== -->
+    <section class="panel">
+      <h2>Rollback Status {% if auto_rollback %}<span class="badge badge-active">auto-rollback ON</span>{% else %}<span class="badge badge-failed">auto-rollback OFF</span>{% endif %}</h2>
+      <table>
+        <thead>
+          <tr><th>Source</th><th>Current Version In Use</th><th>Status</th><th>Last Updated</th></tr>
+        </thead>
+        <tbody>
+          {% for source in sources %}
+          <tr>
+            <td>{{ source }}</td>
+            {% if current[source] %}
+              <td>v{{ current[source].version_number }} (id {{ current[source].id }})</td>
+              <td><span class="badge badge-active">{{ current[source].status }}</span></td>
+              <td>{{ current[source].created_at }}</td>
+            {% else %}
+              <td class="empty">none</td>
+              <td><span class="badge badge-failed">unavailable</span></td>
+              <td class="empty">&mdash;</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
     <!-- ===== Simulate controls ===== -->
     <section class="panel">
       <h2>Simulate Pipeline</h2>
-      <p class="small">Create a new data version and run the pipeline. Use the failure button to demo the rollback phase.</p>
+      <p class="small">Create a new data version and run the pipeline. Use the failure button to demo the automatic rollback.</p>
       <div class="controls">
         {% for source in sources %}
           <button class="btn" onclick="runPipeline('{{ source }}', false)">Run {{ source }}</button>
@@ -126,7 +152,7 @@
             <td>{{ rb.created_at }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="empty">No rollbacks yet (implemented in Phase 4).</td></tr>
+          <tr><td colspan="5" class="empty">No rollbacks recorded yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -134,7 +160,7 @@
   </main>
 
   <footer>
-    <p>Phase 3: Lineage tracking and simulated pipeline updates</p>
+    <p>Phase 4: Automatic rollback to the last successful version</p>
   </footer>
 
   <script>
@@ -148,10 +174,14 @@
           body: JSON.stringify({ source_name: sourceName, force_failure: forceFailure })
         });
         const data = await response.json();
-        out.textContent = data.status === "success"
-          ? "Success: " + data.message
-          : "Failure: " + data.message;
-        setTimeout(() => location.reload(), 1200);
+        if (data.status === "success") {
+          out.textContent = "Success: " + data.message;
+        } else if (data.rolled_back) {
+          out.textContent = "Failure -> AUTO ROLLBACK: " + (data.rollback ? data.rollback.message : "");
+        } else {
+          out.textContent = "Failure: " + data.message;
+        }
+        setTimeout(() => location.reload(), 1400);
       } catch (err) {
         out.textContent = "Error: " + err.message;
       }

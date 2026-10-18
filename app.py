@@ -9,6 +9,7 @@ from flask import Flask, jsonify, render_template, request
 
 import database
 import pipeline
+import rollback
 
 app = Flask(__name__)
 
@@ -19,6 +20,7 @@ database.init_db()
 @app.route("/")
 def index():
     """Dashboard home page."""
+    sources = database.get_source_names()
     return render_template(
         "index.html",
         stats=pipeline.get_dashboard_stats(),
@@ -26,7 +28,9 @@ def index():
         runs=database.get_pipeline_runs()[:20],
         chains=pipeline.get_lineage_chains(),
         rollbacks=database.get_rollback_logs()[:20],
-        sources=database.get_source_names(),
+        sources=sources,
+        current={s: rollback.get_current_version(s) for s in sources},
+        auto_rollback=rollback.AUTO_ROLLBACK_ENABLED,
     )
 
 
@@ -60,6 +64,53 @@ def api_lineage():
 def api_rollbacks():
     """All rollback events, newest first."""
     return jsonify(database.get_rollback_logs())
+
+
+@app.route("/api/current")
+def api_current():
+    """The version currently in use for every data source."""
+    return jsonify(
+        [
+            {"source_name": source, "current_version": rollback.get_current_version(source)}
+            for source in database.get_source_names()
+        ]
+    )
+
+
+@app.route("/api/config")
+def api_config():
+    """Configuration used by the demo."""
+    return jsonify(
+        {
+            "auto_rollback_enabled": rollback.AUTO_ROLLBACK_ENABLED,
+            "failure_probability": pipeline.DEFAULT_FAILURE_PROBABILITY,
+        }
+    )
+
+
+@app.route("/api/rollback", methods=["POST"])
+def api_rollback():
+    """Manually roll back a failed version (useful for the demo).
+
+    JSON body:
+        {"version_id": 7, "run_id": 6, "reason": "manual demo rollback"}
+    """
+    data = request.get_json(silent=True) or {}
+    version_id = data.get("version_id")
+    if not version_id:
+        return jsonify({"error": "version_id is required"}), 400
+
+    version = database.get_version_by_id(version_id)
+    if version is None:
+        return jsonify({"error": f"Version {version_id} not found"}), 404
+
+    result = rollback.perform_rollback(
+        version["source_name"],
+        failed_run_id=data.get("run_id"),
+        failed_version_id=version_id,
+        reason=data.get("reason", "Manual rollback requested"),
+    )
+    return jsonify(result)
 
 
 @app.route("/api/simulate", methods=["POST"])

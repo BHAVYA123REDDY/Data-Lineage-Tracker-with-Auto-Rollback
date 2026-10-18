@@ -62,7 +62,10 @@ def run_tests():
         check("forced run reports failure", result2["status"] == "failure")
         check("failed run creates version v2", result2["version_number"] == 2)
         failed_version = database.get_version_by_id(result2["version_id"], test_db)
-        check("failed version is marked failed", failed_version["status"] == "failed")
+        # Phase 4: a failure automatically rolls back to the last good version,
+        # so the bad version is marked 'rolled_back' (not left as 'failed').
+        check("failed version is rolled back", failed_version["status"] == "rolled_back")
+        check("failure triggered a rollback", result2["rolled_back"] is True)
 
         # --- version numbering continues per source ---
         result3 = pipeline.simulate_pipeline_run(
@@ -88,7 +91,8 @@ def run_tests():
         check("stats count 4 runs", stats["total_runs"] == 4)
         check("stats count 2 successful runs", stats["successful_runs"] == 3)  # 1+1+1
         check("stats count 1 failed run", stats["failed_runs"] == 1)
-        check("stats detect failed versions", stats["failed_versions"] == 1)
+        check("stats detect rolled back versions", stats["rolled_back_versions"] == 1)
+        check("stats show 1 rollback event", stats["total_rollbacks"] == 1)
 
         print(f"\nResults: {passed} passed, {failed} failed")
         return failed == 0

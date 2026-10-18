@@ -10,6 +10,7 @@ This module keeps the demo simple:
 import random
 
 import database
+import rollback
 
 # How often a simulated run fails by default (0.3 = 30% of runs).
 DEFAULT_FAILURE_PROBABILITY = 0.3
@@ -89,8 +90,10 @@ def simulate_pipeline_run(
       1. Create a new version for the source (representing the new data).
       2. Decide success or failure (randomly, or forced).
       3. Record the pipeline run and update the version status.
+      4. On failure, automatically roll back to the last successful version.
 
-    Returns a dictionary describing what happened.
+    Returns a dictionary describing what happened, including the rollback
+    details when a failure occurred.
     """
     rng = rng or random.Random()
 
@@ -113,6 +116,8 @@ def simulate_pipeline_run(
     )
     failed = force_failure or (rng.random() < probability)
 
+    rollback_result = None
+
     if failed:
         database.update_version_status(version_id, "failed", db_path=db_path)
         message = "Simulated failure: data quality check did not pass"
@@ -120,6 +125,16 @@ def simulate_pipeline_run(
             f"{source_name}_pipeline", version_id, "failure", message, db_path=db_path
         )
         status = "failure"
+
+        # Automatic rollback: restore the last good version.
+        if rollback.AUTO_ROLLBACK_ENABLED:
+            rollback_result = rollback.perform_rollback(
+                source_name,
+                failed_run_id=run_id,
+                failed_version_id=version_id,
+                reason="Automatic rollback after pipeline failure",
+                db_path=db_path,
+            )
     else:
         rows = rng.randint(100, 1000)
         message = f"Processed {rows} rows successfully"
@@ -135,6 +150,9 @@ def simulate_pipeline_run(
         "version_number": next_number,
         "status": status,
         "message": message,
+        "rollback": rollback_result,
+        "rolled_back": bool(rollback_result and rollback_result["status"] == "rolled_back"),
+        "restored_version_id": (rollback_result or {}).get("restored_version_id"),
     }
 
 
