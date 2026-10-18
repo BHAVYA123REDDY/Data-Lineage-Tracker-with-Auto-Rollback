@@ -11,6 +11,9 @@ venv/
 *.db
 *.sqlite3
 
+# Log files
+*.log
+
 # Environment variables
 .env
 

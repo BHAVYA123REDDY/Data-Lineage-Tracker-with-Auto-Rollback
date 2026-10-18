@@ -173,3 +173,71 @@ def get_dashboard_stats(db_path=None):
         "total_rollbacks": len(rollbacks),
         "last_run": runs[0] if runs else None,
     }
+
+
+def get_source_status(db_path=None):
+    """Per-source summary used by the dashboard status cards."""
+    versions = database.get_versions(db_path=db_path)
+    runs = database.get_pipeline_runs_detailed(db_path=db_path)
+
+    summary = []
+    for source in database.get_source_names(db_path=db_path):
+        source_versions = [v for v in versions if v["source_name"] == source]
+        source_runs = [r for r in runs if r["source_name"] == source]
+
+        last_run = source_runs[0] if source_runs else None
+        summary.append(
+            {
+                "source_name": source,
+                "total_versions": len(source_versions),
+                "failed_versions": len(
+                    [v for v in source_versions if v["status"] in ("failed", "rolled_back")]
+                ),
+                "total_runs": len(source_runs),
+                "failed_runs": len([r for r in source_runs if r["status"] == "failure"]),
+                "last_run_status": last_run["status"] if last_run else None,
+                "last_run_message": last_run["message"] if last_run else None,
+                "last_run_time": last_run["started_at"] if last_run else None,
+                "health": (
+                    "unknown"
+                    if last_run is None
+                    else ("healthy" if last_run["status"] == "success" else "attention")
+                ),
+            }
+        )
+    return summary
+
+
+def get_activity_log(limit=50, db_path=None):
+    """A single chronological log of pipeline runs and rollback events."""
+    events = []
+
+    for run in database.get_pipeline_runs_detailed(limit=limit, db_path=db_path):
+        events.append(
+            {
+                "type": "pipeline_run",
+                "level": "error" if run["status"] == "failure" else "success",
+                "source": run["source_name"],
+                "message": f"{run['pipeline_name']} finished with {run['status']}: {run['message']}",
+                "timestamp": run["started_at"],
+            }
+        )
+
+    for rb in database.get_rollback_logs_detailed(limit=limit, db_path=db_path):
+        restored = rb["restored_version_number"]
+        events.append(
+            {
+                "type": "rollback",
+                "level": "warning",
+                "source": rb["source_name"],
+                "message": (
+                    f"Rolled back to v{restored}: {rb['reason']}"
+                    if restored is not None
+                    else f"Rollback attempted: {rb['reason']}"
+                ),
+                "timestamp": rb["created_at"],
+            }
+        )
+
+    events.sort(key=lambda e: e["timestamp"], reverse=True)
+    return events[:limit]

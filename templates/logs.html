@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Activity Logs &mdash; Data Lineage Tracker</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Data Lineage Tracker with Auto Rollback</h1>
+    <p class="subtitle">Activity Logs</p>
+    <nav>
+      <a href="{{ url_for('index') }}">Dashboard</a>
+      <a href="{{ url_for('logs_page') }}" class="active">Logs</a>
+      <a href="{{ url_for('health') }}">Health</a>
+      <a href="{{ url_for('api_logs') }}">API</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card">
+        <h2>Total Runs</h2>
+        <p class="big">{{ stats.total_runs }}</p>
+        <p class="small">{{ stats.successful_runs }} success &middot; {{ stats.failed_runs }} failed</p>
+      </div>
+      <div class="card">
+        <h2>Rollbacks</h2>
+        <p class="big">{{ stats.total_rollbacks }}</p>
+        <p class="small">{{ stats.rolled_back_versions }} versions rolled back</p>
+      </div>
+      <div class="card">
+        <h2>Versions</h2>
+        <p class="big">{{ stats.total_versions }}</p>
+        <p class="small">{{ stats.active_versions }} active</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Combined Activity Log</h2>
+      <ul class="log-feed">
+        {% for event in activity %}
+          <li class="log-item log-{{ event.level }}">
+            <span class="log-time">{{ event.timestamp }}</span>
+            <span class="log-tag">{{ event.type }}</span>
+            <span class="log-source">{{ event.source }}</span>
+            <span class="log-message">{{ event.message }}</span>
+          </li>
+        {% else %}
+          <li class="empty">No activity recorded yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Pipeline Run Log</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Source</th><th>Pipeline</th><th>Version</th><th>Status</th><th>Message</th><th>Started</th></tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.source_name or '-' }}</td>
+            <td>{{ r.pipeline_name }}</td>
+            <td>{% if r.version_number %}v{{ r.version_number }}{% else %}{{ r.version_id }}{% endif %}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>{{ r.message }}</td>
+            <td>{{ r.started_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">No pipeline runs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel">
+      <h2>Rollback Log</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Source</th><th>Failed Run</th><th>Failed Version</th><th>Restored Version</th><th>Reason</th><th>When</th></tr>
+        </thead>
+        <tbody>
+          {% for rb in rollbacks %}
+          <tr>
+            <td>{{ rb.id }}</td>
+            <td>{{ rb.source_name or '-' }}</td>
+            <td>{{ rb.failed_run_id }}</td>
+            <td>{% if rb.failed_version_number %}v{{ rb.failed_version_number }}{% else %}-{% endif %}</td>
+            <td>{% if rb.restored_version_number %}v{{ rb.restored_version_number }}{% else %}-{% endif %}</td>
+            <td>{{ rb.reason }}</td>
+            <td>{{ rb.created_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">No rollbacks recorded yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p>Phase 5: Dashboard, logs and error handling</p>
+  </footer>
+</body>
+</html>

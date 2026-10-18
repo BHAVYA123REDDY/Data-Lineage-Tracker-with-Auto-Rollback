@@ -197,6 +197,28 @@ def get_pipeline_runs(db_path=None):
         conn.close()
 
 
+def get_pipeline_runs_detailed(limit=None, db_path=None):
+    """Pipeline runs joined with the version and source they belong to."""
+    conn = get_connection(db_path)
+    try:
+        sql = """
+            SELECT r.id, r.pipeline_name, r.version_id, r.status, r.message,
+                   r.started_at, r.finished_at,
+                   v.source_name, v.version_number, v.status AS version_status
+            FROM pipeline_runs r
+            LEFT JOIN data_versions v ON v.id = r.version_id
+            ORDER BY r.id DESC
+        """
+        params = []
+        if limit:
+            sql += " LIMIT ?"
+            params.append(limit)
+        rows = conn.execute(sql, params).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 # ---------------------- rollback_logs ----------------------
 
 def add_rollback_log(failed_run_id, rolled_back_to_version_id, reason, db_path=None):
@@ -221,6 +243,33 @@ def get_rollback_logs(db_path=None):
         rows = conn.execute(
             "SELECT * FROM rollback_logs ORDER BY created_at DESC, id DESC"
         ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_rollback_logs_detailed(limit=None, db_path=None):
+    """Rollback events joined with the failed run and the restored version."""
+    conn = get_connection(db_path)
+    try:
+        sql = """
+            SELECT rb.id, rb.failed_run_id, rb.rolled_back_to_version_id,
+                   rb.reason, rb.created_at,
+                   r.pipeline_name,
+                   COALESCE(failed.source_name, restored.source_name) AS source_name,
+                   failed.version_number AS failed_version_number,
+                   restored.version_number AS restored_version_number
+            FROM rollback_logs rb
+            LEFT JOIN pipeline_runs r     ON r.id = rb.failed_run_id
+            LEFT JOIN data_versions failed   ON failed.id = r.version_id
+            LEFT JOIN data_versions restored ON restored.id = rb.rolled_back_to_version_id
+            ORDER BY rb.id DESC
+        """
+        params = []
+        if limit:
+            sql += " LIMIT ?"
+            params.append(limit)
+        rows = conn.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
     finally:
         conn.close()

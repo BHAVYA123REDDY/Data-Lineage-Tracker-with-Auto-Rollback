@@ -25,6 +25,33 @@ header {
   color: #a8c3e0;
 }
 
+nav {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+nav a {
+  color: #dbe9f7;
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+nav a:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+nav a.active {
+  background-color: #ffffff;
+  color: #1f3a5f;
+  font-weight: 600;
+}
+
 main {
   max-width: 1150px;
   margin: 0 auto;
@@ -214,6 +241,84 @@ tbody tr:hover {
 .empty {
   color: #90a4ae;
   font-style: italic;
+}
+
+/* --- activity log feed --- */
+.log-feed {
+  list-style: none;
+}
+
+.log-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 10px;
+  border-left: 4px solid #cfd8dc;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  background-color: #fafcfe;
+  font-size: 0.88rem;
+}
+
+.log-item.log-success {
+  border-left-color: #2e7d32;
+}
+
+.log-item.log-error {
+  border-left-color: #b03a2e;
+}
+
+.log-item.log-warning {
+  border-left-color: #ef6c00;
+}
+
+.log-time {
+  color: #90a4ae;
+  min-width: 145px;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-tag {
+  background-color: #e3f2fd;
+  color: #0d47a1;
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.log-source {
+  font-weight: 600;
+  color: #1f3a5f;
+}
+
+.log-message {
+  flex: 1 1 240px;
+}
+
+/* --- error page --- */
+.error-panel {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.error-code {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #1f3a5f;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.error-panel .controls {
+  justify-content: center;
+  margin-top: 20px;
+}
+
+a.btn {
+  text-decoration: none;
+  display: inline-block;
 }
 
 footer {
