@@ -9,33 +9,153 @@
 <body>
   <header>
     <h1>Data Lineage Tracker with Auto Rollback</h1>
-    <p class="subtitle">DevOps PBL &mdash; Dashboard</p>
+    <p class="subtitle">DevOps PBL &mdash; Pipeline Dashboard</p>
   </header>
 
   <main>
-    <section class="card">
-      <h2>Pipeline Status</h2>
-      <p class="status ok">Coming in Phase 3</p>
+    <!-- ===== Summary cards ===== -->
+    <section class="cards">
+      <div class="card">
+        <h2>Data Versions</h2>
+        <p class="big">{{ stats.total_versions }}</p>
+        <p class="small">{{ stats.active_versions }} active &middot; {{ stats.failed_versions }} failed</p>
+      </div>
+      <div class="card">
+        <h2>Pipeline Runs</h2>
+        <p class="big">{{ stats.total_runs }}</p>
+        <p class="small">{{ stats.successful_runs }} success &middot; {{ stats.failed_runs }} failed</p>
+      </div>
+      <div class="card">
+        <h2>Rollbacks</h2>
+        <p class="big">{{ stats.total_rollbacks }}</p>
+        <p class="small">automatic rollback events</p>
+      </div>
     </section>
 
-    <section class="card">
+    <!-- ===== Data lineage ===== -->
+    <section class="panel">
       <h2>Data Lineage</h2>
-      <p class="status pending">Coming in Phase 3</p>
+      {% for chain in chains %}
+        <div class="chain">
+          <span class="chain-label">{{ chain.source }}</span>
+          {% for node in chain.nodes %}
+            <span class="arrow">&rarr;</span>
+            <span class="node node-{{ 'source' if loop.index0 == 0 else ('output' if loop.last else 'step') }}">{{ node }}</span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">No lineage recorded yet.</p>
+      {% endfor %}
     </section>
 
-    <section class="card">
+    <!-- ===== Simulate controls ===== -->
+    <section class="panel">
+      <h2>Simulate Pipeline</h2>
+      <p class="small">Create a new data version and run the pipeline. Use the failure button to demo the rollback phase.</p>
+      <div class="controls">
+        {% for source in sources %}
+          <button class="btn" onclick="runPipeline('{{ source }}', false)">Run {{ source }}</button>
+          <button class="btn btn-danger" onclick="runPipeline('{{ source }}', true)">Fail {{ source }}</button>
+        {% endfor %}
+      </div>
+      <p id="sim-result" class="sim-result"></p>
+    </section>
+
+    <!-- ===== Version history ===== -->
+    <section class="panel">
       <h2>Version History</h2>
-      <p class="status pending">Coming in Phase 2</p>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Source</th><th>Version</th><th>Status</th><th>Description</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          {% for v in versions %}
+          <tr>
+            <td>{{ v.id }}</td>
+            <td>{{ v.source_name }}</td>
+            <td>v{{ v.version_number }}</td>
+            <td><span class="badge badge-{{ v.status }}">{{ v.status }}</span></td>
+            <td>{{ v.description }}</td>
+            <td>{{ v.created_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">No versions yet. Run the seed script.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </section>
 
-    <section class="card">
+    <!-- ===== Pipeline runs ===== -->
+    <section class="panel">
+      <h2>Pipeline Runs</h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Pipeline</th><th>Version</th><th>Status</th><th>Message</th><th>Started</th></tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.pipeline_name }}</td>
+            <td>{{ r.version_id }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>{{ r.message }}</td>
+            <td>{{ r.started_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="empty">No pipeline runs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ===== Rollback history ===== -->
+    <section class="panel">
       <h2>Rollback History</h2>
-      <p class="status pending">Coming in Phase 4</p>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Failed Run</th><th>Restored Version</th><th>Reason</th><th>When</th></tr>
+        </thead>
+        <tbody>
+          {% for rb in rollbacks %}
+          <tr>
+            <td>{{ rb.id }}</td>
+            <td>{{ rb.failed_run_id }}</td>
+            <td>{{ rb.rolled_back_to_version_id }}</td>
+            <td>{{ rb.reason }}</td>
+            <td>{{ rb.created_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">No rollbacks yet (implemented in Phase 4).</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </section>
   </main>
 
   <footer>
-    <p>Phase 1: Minimal Flask website</p>
+    <p>Phase 3: Lineage tracking and simulated pipeline updates</p>
   </footer>
+
+  <script>
+    async function runPipeline(sourceName, forceFailure) {
+      const out = document.getElementById("sim-result");
+      out.textContent = "Running pipeline for " + sourceName + "...";
+      try {
+        const response = await fetch("/api/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source_name: sourceName, force_failure: forceFailure })
+        });
+        const data = await response.json();
+        out.textContent = data.status === "success"
+          ? "Success: " + data.message
+          : "Failure: " + data.message;
+        setTimeout(() => location.reload(), 1200);
+      } catch (err) {
+        out.textContent = "Error: " + err.message;
+      }
+    }
+  </script>
 </body>
 </html>

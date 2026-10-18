@@ -58,6 +58,24 @@ def init_db(db_path=None):
                 FOREIGN KEY (failed_run_id) REFERENCES pipeline_runs(id),
                 FOREIGN KEY (rolled_back_to_version_id) REFERENCES data_versions(id)
             );
+
+            CREATE TABLE IF NOT EXISTS lineage_nodes (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT    NOT NULL UNIQUE,
+                node_type   TEXT    NOT NULL,
+                description TEXT,
+                created_at  TEXT    NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS lineage_edges (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_node_id INTEGER NOT NULL,
+                to_node_id   INTEGER NOT NULL,
+                step_name    TEXT,
+                created_at   TEXT    NOT NULL,
+                FOREIGN KEY (from_node_id) REFERENCES lineage_nodes(id),
+                FOREIGN KEY (to_node_id)   REFERENCES lineage_nodes(id)
+            );
             """
         )
         conn.commit()
@@ -95,6 +113,57 @@ def get_versions(db_path=None):
             "SELECT * FROM data_versions ORDER BY created_at DESC, id DESC"
         ).fetchall()
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_version_by_id(version_id, db_path=None):
+    """Return one version as a dictionary, or None if not found."""
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT * FROM data_versions WHERE id = ?", (version_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_latest_version(source_name, only_successful=False, db_path=None):
+    """Return the newest version for a source, or None."""
+    conn = get_connection(db_path)
+    try:
+        sql = ("SELECT * FROM data_versions WHERE source_name = ?")
+        params = [source_name]
+        if only_successful:
+            sql += " AND status = 'active'"
+        sql += " ORDER BY version_number DESC, id DESC LIMIT 1"
+        row = conn.execute(sql, params).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def update_version_status(version_id, status, db_path=None):
+    """Change the status of a version (e.g. 'active' -> 'failed')."""
+    conn = get_connection(db_path)
+    try:
+        conn.execute(
+            "UPDATE data_versions SET status = ? WHERE id = ?", (status, version_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_source_names(db_path=None):
+    """Return the distinct list of tracked data sources."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT source_name FROM data_versions ORDER BY source_name"
+        ).fetchall()
+        return [row["source_name"] for row in rows]
     finally:
         conn.close()
 
@@ -151,6 +220,82 @@ def get_rollback_logs(db_path=None):
     try:
         rows = conn.execute(
             "SELECT * FROM rollback_logs ORDER BY created_at DESC, id DESC"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------- lineage (Phase 3) ----------------------
+
+def add_lineage_node(name, node_type, description="", db_path=None):
+    """Insert a lineage node (node_type: 'source', 'step' or 'output')."""
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO lineage_nodes (name, node_type, description, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (name, node_type, description, _now()),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_lineage_nodes(db_path=None):
+    """Return all lineage nodes ordered by type then name."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            "SELECT * FROM lineage_nodes ORDER BY node_type, name"
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def find_lineage_node(name, db_path=None):
+    """Return a lineage node by its name, or None."""
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT * FROM lineage_nodes WHERE name = ?", (name,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def add_lineage_edge(from_node_id, to_node_id, step_name="", db_path=None):
+    """Connect two lineage nodes with a directed edge."""
+    conn = get_connection(db_path)
+    try:
+        cur = conn.execute(
+            "INSERT INTO lineage_edges (from_node_id, to_node_id, step_name, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (from_node_id, to_node_id, step_name, _now()),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_lineage_edges(db_path=None):
+    """Return all lineage edges together with the node names they connect."""
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT e.id, e.step_name,
+                   f.name AS from_name, f.node_type AS from_type,
+                   t.name AS to_name,   t.node_type AS to_type
+            FROM lineage_edges e
+            JOIN lineage_nodes f ON f.id = e.from_node_id
+            JOIN lineage_nodes t ON t.id = e.to_node_id
+            ORDER BY e.id
+            """
         ).fetchall()
         return [dict(row) for row in rows]
     finally:
