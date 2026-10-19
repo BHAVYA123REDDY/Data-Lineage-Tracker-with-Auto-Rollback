@@ -492,7 +492,7 @@ Covered behaviour includes lineage idempotency, per-source version numbering, au
 | 5 | ✅ Done | Dashboard, logs and error handling improvements |
 | 6 | ✅ Done | README and project documentation |
 | 7 | ✅ Done | Docker image, Compose setup, health check and data volume |
-| 8 | Planned | Jenkins CI/CD pipeline |
+| 8 | ✅ Done | Jenkins CI/CD pipeline |
 | 9 | Optional | Kubernetes deployment if practical on the laptop |
 
 ---
