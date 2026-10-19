@@ -33,7 +33,7 @@ pipeline {
         bat """
           "%DOCKER%" run -d --name lineage-smoke-%BUILD_NUMBER% -p 5001:5000 %IMAGE_NAME%:%BUILD_NUMBER%
           ping 127.0.0.1 -n 11 > nul
-          python -c "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:5001/health', timeout=5).status == 200 else 1)"
+          "%DOCKER%" exec lineage-smoke-%BUILD_NUMBER% python -c "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/health', timeout=5).status == 200 else 1)"
           set EXITCODE=%ERRORLEVEL%
           "%DOCKER%" stop lineage-smoke-%BUILD_NUMBER% 2>nul || exit 0
           "%DOCKER%" rm lineage-smoke-%BUILD_NUMBER% 2>nul || exit 0
