@@ -17,14 +17,14 @@ pipeline {
         """
       }
     }
-    stage('Run tests') {
+     stage('Run tests') {
       steps {
         bat """
-         "%DOCKER%" run --rm %IMAGE_NAME%:%BUILD_NUMBER% python test_database.py ^
-            && "%DOCKER%" run --rm %IMAGE_NAME%:%BUILD_NUMBER% python test_pipeline.py ^
-            && "%DOCKER%" run --rm %IMAGE_NAME%:%BUILD_NUMBER% python test_rollback.py ^
-            && "%DOCKER%" run --rm %IMAGE_NAME%:%BUILD_NUMBER% python test_app.py ^
-            && "%DOCKER%" run --rm %IMAGE_NAME%:%BUILD_NUMBER% python test_config.py
+          "%DOCKER%" run --rm --entrypoint python %IMAGE_NAME%:%BUILD_NUMBER% test_database.py ^
+          && "%DOCKER%" run --rm --entrypoint python %IMAGE_NAME%:%BUILD_NUMBER% test_pipeline.py ^
+          && "%DOCKER%" run --rm --entrypoint python %IMAGE_NAME%:%BUILD_NUMBER% test_rollback.py ^
+          && "%DOCKER%" run --rm --entrypoint python %IMAGE_NAME%:%BUILD_NUMBER% test_app.py ^
+          && "%DOCKER%" run --rm --entrypoint python %IMAGE_NAME%:%BUILD_NUMBER% test_config.py
         """
       }
     }
