@@ -1,0 +1,9 @@
+---
+- name: Test Ansible setup
+  hosts: local
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Verify Ansible connection
+      ansible.builtin.ping:
