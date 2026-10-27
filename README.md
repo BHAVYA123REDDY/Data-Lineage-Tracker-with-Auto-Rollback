@@ -493,7 +493,8 @@ Covered behaviour includes lineage idempotency, per-source version numbering, au
 | 6 | ✅ Done | README and project documentation |
 | 7 | ✅ Done | Docker image, Compose setup, health check and data volume |
 | 8 | ✅ Done | Jenkins CI/CD pipeline |
-| 9 | Optional | Kubernetes deployment if practical on the laptop |
+| 9 | ✅ Done | Ansible deployment with auto-rollback integration |
+| 10 | Optional | Kubernetes deployment if practical on the laptop |
 
 ---
 
